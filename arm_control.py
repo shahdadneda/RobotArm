@@ -15,7 +15,7 @@ Once running, type commands like:
   up / down / set 120 / left / right / home / speed 6 / status / help / quit
 
 These map to the Arduino sketch commands:
-  SERVO <deg>, SERVO_REL <delta>, STEPPER <delta>, HOME, SPEED <rpm>, STATUS
+  SERVO <deg>, SERVO_REL <delta>, SERVO2 <deg>, STEPPER <delta>, HOME, SPEED <rpm>, STATUS
 """
 import argparse
 import sys
@@ -95,9 +95,10 @@ def reader_thread(ser: serial.Serial, stop_event: threading.Event) -> None:
 
 def wasd_loop(ser: serial.Serial, stop_event: threading.Event) -> None:
     """Read single keypresses (no Enter) and map WASD + helpers to commands."""
-    print("WASD mode: press W/S to tilt servo, A/D to rotate stepper, H=home, Q=quit")
+    print("WASD mode: W/S servo1, T/G servo2, A/D stepper, H=home, Q=quit")
     print("Tip: holding a key will repeat based on your OS key repeat settings.")
     current_servo = 90
+    current_servo2 = 90
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -125,6 +126,14 @@ def wasd_loop(ser: serial.Serial, stop_event: threading.Event) -> None:
                 if lower == "s":
                     current_servo = max(0, current_servo - 20)
                     send(ser, f"SERVO {current_servo}")
+                    continue
+                if lower == "t":
+                    current_servo2 = min(180, current_servo2 + 20)
+                    send(ser, f"SERVO2 {current_servo2}")
+                    continue
+                if lower == "g":
+                    current_servo2 = max(0, current_servo2 - 20)
+                    send(ser, f"SERVO2 {current_servo2}")
                     continue
                 if lower == "d":
                     send(ser, "STEPPER -20")
@@ -188,7 +197,8 @@ def main(argv=None) -> int:
     print("Also: WASD shortcuts available. Use --keys for immediate keypress control (no Enter).")
     print()
 
-    current_servo = 90  # track relative up/down
+    current_servo = 90  # track relative up/down for servo1
+    current_servo2 = 90  # track relative up/down for servo2
 
     try:
         if args.keys:
@@ -207,7 +217,7 @@ def main(argv=None) -> int:
 
                 if lower == "help":
                     print("Shortcuts: up, down, set <deg>, left, right, home, speed <rpm>, status, help, quit")
-                    print("WASD shortcuts: w/s tilt servo ±20°, a/d rotate stepper ±20 steps")
+                    print("WASD shortcuts: w/s servo1 ±20°, t/g servo2 ±20°, a/d stepper ±20 steps")
                     print("Raw commands pass through to Arduino too (e.g., 'SERVO 135').")
                     continue
 
@@ -224,6 +234,16 @@ def main(argv=None) -> int:
                     delta = -20 if lower == "s" else -5
                     current_servo = max(0, current_servo + delta)
                     send(ser, f"SERVO {current_servo}")
+                    continue
+
+                if lower == "t":
+                    current_servo2 = min(180, current_servo2 + 20)
+                    send(ser, f"SERVO2 {current_servo2}")
+                    continue
+
+                if lower == "g":
+                    current_servo2 = max(0, current_servo2 - 20)
+                    send(ser, f"SERVO2 {current_servo2}")
                     continue
 
                 if lower.startswith("set "):
